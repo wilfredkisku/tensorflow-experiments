@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+import time
 import pathlib
 import os
 import pandas as pd
@@ -66,8 +67,44 @@ class Pipelines:
 
 		ds = tf.data.Dataset.from_generator(lambda: img_gen.flow_from_directory(flowers_path), output_types=(tf.float32, tf.float32), output_shapes=([32, 256, 256, 3],[32, 5]))
 		print(ds.element_spec)
+
+
+class ArtificialDataset():
+
+	def _generator(num_samples):
+		# opening the file
+		time.sleep(0.03)
+		
+		for sample_idx in range(num_samples):
+			# reading the (line, record) from the file
+			time.sleep(0.015)
+			yield (sample_idx,)
+
+
+	def __new__(cls, num_samples=3):
+
+		return tf.data.Dataset.from_generator(cls._generator, output_types=tf.dtypes.int64, output_shapes=(1,), args=(num_samples,))
+	
+	def benchmark(dataset, num_epochs = 2):
+		start_time = time.perf_counter()
+		for epoch_num in range(num_epochs):
+			for sample in dataset:
+				time.sleep(0.01)
+		tf.print("Executin Time:", time.perf_counter() - start_time)
+
+	def fast_benchmark(dataset, num_epochs=2):
+		start_time = time.perf_counter()
+		for _ in tf.data.Dataset.range(num_epochs):
+			for _ in dataset:
+				pass
+		tf.print("Execution time:", time.perf_counter() - start_time)
+
+	def increment(x):
+		return x+1
+		
 if __name__ == "__main__":
 	
+	##### Working with the tensorflow dataset ocjects #####
 	#Pipelines.createDataset()
 	#Pipelines.inputData()
 	#for i, series in Pipelines.gen_series():
@@ -80,4 +117,13 @@ if __name__ == "__main__":
 	#ids, sequence_batch = next(iter(ds_series_batch))
 	#print(ids.numpy())
 	#print(sequence_batch.numpy())
-	Pipelines.imagePipelines()
+	#Pipelines.imagePipelines()
+	
+	##### data pipelines #####
+	ArtificialDataset.benchmark(ArtificialDataset())
+	ArtificialDataset.benchmark(ArtificialDataset().prefetch(tf.data.experimental.AUTOTUNE))
+	ArtificialDataset.benchmark(tf.data.Dataset.range(2).interleave(ArtificialDataset))
+	ArtificialDataset.benchmark(tf.data.Dataset.range(2).interleave(ArtificialDataset, num_parallel_calls = tf.data.experimental.AUTOTUNE))
+	fast_dataset = tf.data.Dataset.range(10000)
+	ArtificialDataset.fast_benchmark(fast_dataset.map(ArtificialDataset.increment).batch(256))
+	ArtificialDataset.fast_benchmark(fast_dataset.batch(256).map(ArtificialDataset.increment))
